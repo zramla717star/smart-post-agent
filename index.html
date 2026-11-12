@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Post Agent — Beyond The Silence</title>
+<style>
+  :root { --gold:#d4af37; --gold-soft:#e8c96a; --bg:#0e0e12; --card:#1a1a21; --card2:#23232d; --text:#f2ede3; --muted:#a9a49a; --green:#3fb97f; --red:#e05d5d; --blue:#4a90d9; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; line-height:1.5; }
+  header { padding:18px 16px 10px; text-align:center; border-bottom:1px solid #2a2a33; }
+  header h1 { font-size:22px; letter-spacing:2px; color:var(--gold); }
+  header p { color:var(--muted); font-size:13px; letter-spacing:3px; text-transform:uppercase; margin-top:2px; }
+  nav { display:flex; gap:6px; padding:12px; overflow-x:auto; }
+  nav button { flex:1; min-width:86px; padding:10px 6px; border:1px solid #33333e; background:var(--card); color:var(--text); border-radius:10px; font-size:14px; cursor:pointer; white-space:nowrap; }
+  nav button.active { background:var(--gold); color:#111; border-color:var(--gold); font-weight:700; }
+  main { padding:0 14px 40px; max-width:720px; margin:0 auto; }
+  section { display:none; }
+  section.active { display:block; }
+  .card { background:var(--card); border:1px solid #2a2a33; border-radius:14px; padding:16px; margin-top:12px; }
+  .card h2 { font-size:17px; margin-bottom:10px; color:var(--gold-soft); }
+  .card h3 { font-size:15px; margin:12px 0 6px; }
+  label { display:block; font-size:13px; color:var(--muted); margin:12px 0 4px; }
+  input[type=text], input[type=password], input[type=datetime-local], textarea, select { width:100%; padding:12px; border-radius:10px; border:1px solid #33333e; background:#101014; color:var(--text); font-size:15px; }
+  textarea { min-height:120px; resize:vertical; }
+  .btn { display:block; width:100%; padding:14px; margin-top:12px; border:none; border-radius:12px; font-size:16px; font-weight:700; cursor:pointer; }
+  .btn-gold { background:var(--gold); color:#111; }
+  .btn-dark { background:var(--card2); color:var(--text); border:1px solid #44444f; }
+  .btn-blue { background:var(--blue); color:#fff; }
+  .btn-green { background:var(--green); color:#fff; }
+  .btn:disabled { opacity:.5; cursor:wait; }
+  .msg { padding:12px; border-radius:10px; margin-top:12px; font-size:14px; display:none; white-space:pre-wrap; }
+  .msg.ok { display:block; background:#123524; color:#b9f0d2; border:1px solid #2c6b4a; }
+  .msg.err { display:block; background:#3a1717; color:#ffc9c9; border:1px solid #7a2e2e; }
+  .msg.info { display:block; background:#152a42; color:#cfe6ff; border:1px solid #2c5a86; }
+  .post { background:var(--card); border:1px solid #2a2a33; border-radius:14px; padding:14px; margin-top:12px; }
+  .post img { width:100%; border-radius:10px; margin-top:8px; }
+  .post .meta { color:var(--muted); font-size:12px; margin-top:6px; }
+  .post .counts { color:var(--gold-soft); font-size:13px; margin-top:6px; }
+  .comment { background:var(--card2); border-radius:10px; padding:12px; margin-top:10px; }
+  .comment .who { font-weight:700; font-size:14px; }
+  .comment .text { margin-top:4px; font-size:14px; }
+  .comment textarea { min-height:70px; margin-top:8px; }
+  .row { display:flex; gap:8px; }
+  .row .btn { margin-top:8px; }
+  .small { font-size:13px; color:var(--muted); }
+  .pill { display:inline-block; padding:2px 10px; border-radius:20px; font-size:12px; font-weight:700; }
+  .pill.sched { background:#3a2f10; color:var(--gold-soft); }
+  .pill.posted { background:#123524; color:#7fd6a8; }
+  .pill.due { background:#3a1717; color:#ffc9c9; }
+  .preview { background:#101014; border:1px dashed #44444f; border-radius:12px; padding:14px; margin-top:12px; white-space:pre-wrap; }
+  .preview img, .preview video { width:100%; border-radius:10px; margin-bottom:8px; }
+  .warn { background:#2a230f; border:1px solid #6b5518; color:#ffe9a8; border-radius:10px; padding:12px; font-size:13px; margin-top:12px; }
+  footer { text-align:center; color:var(--muted); font-size:12px; padding:20px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>SMART POST AGENT</h1>
+  <p>Beyond The Silence</p>
+</header>
+<nav>
+  <button class="active" data-tab="dashboard">Dashboard</button>
+  <button data-tab="create">Create Post</button>
+  <button data-tab="comments">Comments</button>
+  <button data-tab="scheduled">Scheduled</button>
+  <button data-tab="settings">Settings</button>
+</nav>
+<main>
+
+  <!-- DASHBOARD -->
+  <section id="tab-dashboard" class="active">
+    <div class="card">
+      <h2>Dashboard</h2>
+      <p class="small">Your Page's recent posts, with likes and comments. Keys are needed first — add them in Settings.</p>
+      <button class="btn btn-gold" id="loadPostsBtn">Load Recent Posts</button>
+      <div class="msg" id="dashMsg"></div>
+      <div id="postsList"></div>
+    </div>
+  </section>
+
+  <!-- CREATE POST -->
+  <section id="tab-create">
+    <div class="card">
+      <h2>Create Post</h2>
+      <label for="mediaInput">Photo or video (optional for a text post)</label>
+      <input type="file" id="mediaInput" accept="image/*,video/*">
+      <label for="captionInput">Caption</label>
+      <textarea id="captionInput" placeholder="Write your caption here, or generate one with AI..."></textarea>
+      <button class="btn btn-dark" id="genCaptionBtn">✨ Generate Caption with AI</button>
+      <div class="msg" id="createMsg"></div>
+      <h3>Preview</h3>
+      <div class="preview" id="previewBox">Nothing to preview yet.</div>
+      <div class="row">
+        <button class="btn btn-green" id="postNowBtn">Post Now</button>
+      </div>
+      <label for="schedTime">Or schedule for later (Pakistan time)</label>
+      <input type="datetime-local" id="schedTime">
+      <button class="btn btn-blue" id="scheduleBtn">Save to Schedule</button>
+      <p class="small" style="margin-top:8px;">Schedule note: this app posts a scheduled item when the app is open at that time. For fully automatic posting while the app is closed, a small GitHub Actions step is needed later — V1 keeps it simple and safe.</p>
+    </div>
+  </section>
+
+  <!-- COMMENTS -->
+  <section id="tab-comments">
+    <div class="card">
+      <h2>Comments</h2>
+      <p class="small">Comments on your latest posts. Every reply needs your Approve &amp; Send tap — nothing is sent automatically.</p>
+      <button class="btn btn-gold" id="loadCommentsBtn">Load Latest Comments</button>
+      <div class="msg" id="commentsMsg"></div>
+      <div id="commentsList"></div>
+    </div>
+  </section>
+
+  <!-- SCHEDULED -->
+  <section id="tab-scheduled">
+    <div class="card">
+      <h2>Scheduled Posts</h2>
+      <p class="small">Saved on this device only. Open the app at the scheduled time and tap Post for due items.</p>
+      <div id="schedList"></div>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="tab-settings">
+    <div class="card">
+      <h2>Settings</h2>
+      <div class="warn">🔒 Your keys stay ONLY in this browser (localStorage). They are never put in the code and are sent only to Google's Gemini API and Facebook's Graph API. Never share them with anyone, and never paste them in a chat.</div>
+      <label for="geminiKey">Gemini API key</label>
+      <input type="password" id="geminiKey" placeholder="Paste your Gemini API key" autocomplete="off">
+      <label for="pageToken">Facebook Page Access Token</label>
+      <input type="password" id="pageToken" placeholder="Paste your Page access token" autocomplete="off">
+      <p class="small">Get it from Meta Graph API Explorer (Get Page Access Token). It expires after a few hours — when it expires, generate a new one there and paste it here again.</p>
+      <label for="pageId">Facebook Page ID</label>
+      <input type="text" id="pageId" placeholder="e.g. 1393436240527022" autocomplete="off">
+      <p class="small">Find it in Graph API Explorer: run <b>me/accounts</b> and copy the <b>id</b> next to your Page name.</p>
+      <button class="btn btn-gold" id="saveSettingsBtn">Save Settings</button>
+      <button class="btn btn-dark" id="clearSettingsBtn">Clear Saved Keys</button>
+      <div class="msg" id="settingsMsg"></div>
+      <h3>Connection test</h3>
+      <button class="btn btn-blue" id="testBtn">Test Connection</button>
+      <div class="msg" id="testMsg"></div>
+    </div>
+  </section>
+
+</main>
+<footer>Smart Post Agent · Free · Your Page, your keys, your control.</footer>
+<script>
+const GRAPH = "https://graph.facebook.com/v27.0";
+const LS = { gemini: "spa_gemini_key", token: "spa_page_token", pageId: "spa_page_id", sched: "spa_scheduled" };
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function showMsg(el, text, kind) { el.textContent = text; el.className = "msg " + kind; }
+function hideMsg(el) { el.className = "msg"; el.textContent = ""; }
+function settings() { return { gemini: (localStorage.getItem(LS.gemini) || "").trim(), token: (localStorage.getItem(LS.token) || "").trim(), pageId: (localStorage.getItem(LS.pageId) || "").trim() }; }
+function needSettings() { const s = settings(); return s.token && s.pageId ? s : null; }
+
+// Tabs
+document.querySelectorAll("nav button").forEach(b => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+    document.querySelectorAll("main section").forEach(s => s.classList.remove("active"));
+    $("tab-" + b.dataset.tab).classList.add("active");
+    if (b.dataset.tab === "scheduled") renderScheduled();
+  });
+});
+
+// Settings
+function loadSettingsIntoForm() {
+  $("geminiKey").value = localStorage.getItem(LS.gemini) || "";
+  $("pageToken").value = localStorage.getItem(LS.token) || "";
+  $("pageId").value = localStorage.getItem(LS.pageId) || "";
+}
+$("saveSettingsBtn").addEventListener("click", () => {
+  localStorage.setItem(LS.gemini, $("geminiKey").value.trim());
+  localStorage.setItem(LS.token, $("pageToken").value.trim());
+  localStorage.setItem(LS.pageId, $("pageId").value.trim());
+  showMsg($("settingsMsg"), "Settings saved in this browser only.", "ok");
+});
+$("clearSettingsBtn").addEventListener("click", () => {
+  Object.values(LS).forEach(k => { if (k !== LS.sched) localStorage.removeItem(k); });
+  loadSettingsIntoForm();
+  showMsg($("settingsMsg"), "Saved keys cleared from this browser.", "info");
+});
+$("testBtn").addEventListener("click", async () => {
+  const s = needSettings();
+  if (!s) return showMsg($("testMsg"), "Add your Page Access Token and Page ID in Settings first.", "err");
+  showMsg($("testMsg"), "Testing…", "info");
+  try {
+    const r = await fetch(`${GRAPH}/${s.pageId}?fields=name,category&access_token=${encodeURIComponent(s.token)}`);
+    const j = await r.json();
+    if (j.error) throw new Error(j.error.message || "Facebook error");
+    showMsg($("testMsg"), `Connected ✓\nPage: ${j.name}\nCategory: ${j.category || "-"}`, "ok");
+  } catch (e) {
+    showMsg($("testMsg"), "Connection failed: " + e.message + "\nIf the token expired, generate a new one in Graph API Explorer and paste it here.", "err");
+  }
+});
+
+// Gemini
+async function gemini(prompt) {
+  const s = settings();
+  if (!s.gemini) throw new Error("Gemini API key is missing — add it in Settings.");
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${encodeURIComponent(s.gemini)}`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+  });
+  const j = await r.json();
+  if (j.error) throw new Error(j.error.message || "Gemini error");
+  const t = j?.candidates?.[0]?.content?.parts?.map(p => p.text || "").join("") || "";
+  if (!t.trim()) throw new Error("Gemini returned an empty reply.");
+  return t.trim();
+}
+
+// Dashboard: load posts
+$("loadPostsBtn").addEventListener("click", async () => {
+  const s = needSettings();
+  if (!s) return showMsg($("dashMsg"), "Add your Page Access Token and Page ID in Settings first.", "err");
+  showMsg($("dashMsg"), "Loading posts…", "info");
+  $("postsList").innerHTML = "";
+  try {
+    const r = await fetch(`${GRAPH}/${s.pageId}/posts?fields=id,message,created_time,full_picture,likes.summary(true),comments.summary(true),shares&limit=10&access_token=${encodeURIComponent(s.token)}`);
+    const j = await r.json();
+    if (j.error) throw new Error(j.error.message || "Facebook error");
+    hideMsg($("dashMsg"));
+    if (!j.data || !j.data.length) { $("postsList").innerHTML = "<p class='small'>No posts found on this Page yet.</p>"; return; }
+    j.data.forEach(p => {
+      const d = document.createElement("div");
+      d.className = "post";
+      d.innerHTML = `<div>${esc(p.message || "(no text)")}</div>` +
+        (p.full_picture ? `<img src="${esc(p.full_picture)}" alt="">` : "") +
+        `<div class="meta">${esc(new Date(p.created_time).toLocaleString())}</div>` +
+        `<div class="counts">♥ ${p.likes?.summary?.total_count ?? 0} &nbsp; 💬 ${p.comments?.summary?.total_count ?? 0} &nbsp; ↗ ${p.shares?.count ?? 0}</div>`;
+      $("postsList").appendChild(d);
+    });
+  } catch (e) {
+    showMsg($("dashMsg"), "Could not load posts: " + e.message, "err");
+  }
+});
+
+// Create post: preview + generate caption + post now + schedule
+let selectedFile = null;
+$("mediaInput").addEventListener("change", e => {
+  selectedFile = e.target.files[0] || null;
+  updatePreview();
+});
+$("captionInput").addEventListener("input", updatePreview);
+function updatePreview() {
+  const cap = $("captionInput").value.trim();
+  let html = "";
+  if (selectedFile) {
+    const url = URL.createObjectURL(selectedFile);
+    html += selectedFile.type.startsWith("video") ? `<video src="${url}" controls></video>` : `<img src="${url}" alt="">`;
+  }
+  html += esc(cap) || "Nothing to preview yet.";
+  $("previewBox").innerHTML = html;
+}
+$("genCaptionBtn").addEventListener("click", async () => {
+  const btn = $("genCaptionBtn");
+  btn.disabled = true;
+  try {
+    const cap = await gemini("Write a short emotional Facebook caption in simple English for a US audience, for the Facebook Page 'Beyond The Silence' (quiet emotional quote videos). 1-2 short lines, then one question at the end to get comments. End with these hashtags: #BeyondTheSilence #DeepQuotes #QuietStrength. Style: quiet strength, trust, self-worth, unspoken feelings. Never clickbait, never sad-clickbait, no emojis except at most one heart.");
+    $("captionInput").value = cap;
+    updatePreview();
+    showMsg($("createMsg"), "Caption generated — edit it if you like, then Post Now or Schedule.", "ok");
+  } catch (e) {
+    showMsg($("createMsg"), "Caption failed: " + e.message, "err");
+  } finally { btn.disabled = false; }
+});
+async function publishPost(caption, file) {
+  const s = needSettings();
+  if (!s) throw new Error("Add your Page Access Token and Page ID in Settings first.");
+  if (file) {
+    const isVideo = file.type.startsWith("video");
+    const fd = new FormData();
+    fd.append("access_token", s.token);
+    if (isVideo) { fd.append("source", file); fd.append("description", caption); }
+    else { fd.append("source", file); fd.append("caption", caption); }
+    const r = await fetch(`${GRAPH}/${s.pageId}/${isVideo ? "videos" : "photos"}`, { method: "POST", body: fd });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error.message || "Facebook error");
+    return j.id;
+  }
+  const r = await fetch(`${GRAPH}/${s.pageId}/feed`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: caption, access_token: s.token })
+  });
+  const j = await r.json();
+  if (j.error) throw new Error(j.error.message || "Facebook error");
+  return j.id;
+}
+$("postNowBtn").addEventListener("click", async () => {
+  const cap = $("captionInput").value.trim();
+  if (!cap && !selectedFile) return showMsg($("createMsg"), "Write a caption or choose a photo/video first.", "err");
+  const btn = $("postNowBtn");
+  btn.disabled = true;
+  showMsg($("createMsg"), "Posting…", "info");
+  try {
+    const id = await publishPost(cap, selectedFile);
+    showMsg($("createMsg"), "Posted ✓ (post id: " + id + ")", "ok");
+    $("captionInput").value = ""; $("mediaInput").value = ""; selectedFile = null; updatePreview();
+  } catch (e) {
+    showMsg($("createMsg"), "Post failed: " + e.message, "err");
+  } finally { btn.disabled = false; }
+});
+function getScheduled() { try { return JSON.parse(localStorage.getItem(LS.sched) || "[]"); } catch { return []; } }
+function saveScheduled(list) { localStorage.setItem(LS.sched, JSON.stringify(list)); }
+$("scheduleBtn").addEventListener("click", () => {
+  const cap = $("captionInput").value.trim();
+  const when = $("schedTime").value;
+  if (!cap) return showMsg($("createMsg"), "Write a caption first.", "err");
+  if (!when) return showMsg($("createMsg"), "Pick a date and time first.", "err");
+  if (selectedFile) return showMsg($("createMsg"), "Scheduled posts in V1 are text-only — media scheduling needs the file stored, which this version does not do. Post media with Post Now, or schedule text now.", "err");
+  const list = getScheduled();
+  list.push({ id: Date.now(), caption: cap, when, status: "scheduled" });
+  list.sort((a, b) => a.when.localeCompare(b.when));
+  saveScheduled(list);
+  $("captionInput").value = ""; $("schedTime").value = ""; updatePreview();
+  showMsg($("createMsg"), "Saved to Schedule ✓ — open the Scheduled tab at that time and tap Post.", "ok");
+  renderScheduled();
+});
+function renderScheduled() {
+  const list = getScheduled();
+  const box = $("schedList");
+  if (!list.length) { box.innerHTML = "<p class='small'>No scheduled posts yet.</p>"; return; }
+  const now = new Date();
+  box.innerHTML = "";
+  list.forEach(item => {
+    const due = item.status === "scheduled" && new Date(item.when) <= now;
+    const d = document.createElement("div");
+    d.className = "post";
+    d.innerHTML = `<span class="pill ${item.status === "posted" ? "posted" : due ? "due" : "sched"}">${item.status === "posted" ? "Posted" : due ? "Due now" : "Scheduled"}</span>` +
+      `<div style="margin-top:8px;">${esc(item.caption)}</div>` +
+      `<div class="meta">${esc(new Date(item.when).toLocaleString())}</div>`;
+    if (item.status === "scheduled") {
+      const row = document.createElement("div");
+      row.className = "row";
+      const postBtn = document.createElement("button");
+      postBtn.className = "btn btn-green";
+      postBtn.textContent = "Post Now";
+      postBtn.addEventListener("click", async () => {
+        postBtn.disabled = true;
+        try {
+          await publishPost(item.caption, null);
+          item.status = "posted";
+          saveScheduled(list);
+          renderScheduled();
+        } catch (e) { alert("Post failed: " + e.message); postBtn.disabled = false; }
+      });
+      const delBtn = document.createElement("button");
+      delBtn.className = "btn btn-dark";
+      delBtn.textContent = "Delete";
+      delBtn.addEventListener("click", () => { saveScheduled(list.filter(x => x.id !== item.id)); renderScheduled(); });
+      row.appendChild(postBtn); row.appendChild(delBtn);
+      d.appendChild(row);
+    }
+    box.appendChild(d);
+  });
+}
+
+// Comments
+$("loadCommentsBtn").addEventListener("click", async () => {
+  const s = needSettings();
+  if (!s) return showMsg($("commentsMsg"), "Add your Page Access Token and Page ID in Settings first.", "err");
+  showMsg($("commentsMsg"), "Loading comments…", "info");
+  $("commentsList").innerHTML = "";
+  try {
+    const rp = await fetch(`${GRAPH}/${s.pageId}/posts?fields=id,message&limit=5&access_token=${encodeURIComponent(s.token)}`);
+    const pj = await rp.json();
+    if (pj.error) throw new Error(pj.error.message || "Facebook error");
+    let found = 0;
+    for (const p of (pj.data || [])) {
+      const rc = await fetch(`${GRAPH}/${p.id}/comments?fields=id,from,message,created_time&limit=10&access_token=${encodeURIComponent(s.token)}`);
+      const cj = await rc.json();
+      if (cj.error || !cj.data) continue;
+      for (const c of cj.data) {
+        found++;
+        const d = document.createElement("div");
+        d.className = "comment";
+        d.innerHTML = `<div class="who">${esc(c.from?.name || "Someone")}</div><div class="text">${esc(c.message)}</div>` +
+          `<div class="meta">${esc(new Date(c.created_time).toLocaleString())} · on: ${esc((p.message || "").slice(0, 60))}</div>`;
+        const genBtn = document.createElement("button");
+        genBtn.className = "btn btn-dark";
+        genBtn.textContent = "✨ Suggest Reply";
+        const ta = document.createElement("textarea");
+        ta.placeholder = "AI-suggested reply will appear here — edit it, then Approve & Send.";
+        const sendBtn = document.createElement("button");
+        sendBtn.className = "btn btn-green";
+        sendBtn.textContent = "Approve & Send Reply";
+        genBtn.addEventListener("click", async () => {
+          genBtn.disabled = true;
+          try { ta.value = await gemini(`Write a short warm reply in simple English to this Facebook comment on the Page 'Beyond The Silence': "${c.message}". Keep it under 25 words, kind and human, no hashtags, no sales talk.`); }
+          catch (e) { alert("Reply failed: " + e.message); }
+          finally { genBtn.disabled = false; }
+        });
+        sendBtn.addEventListener("click", async () => {
+          const text = ta.value.trim();
+          if (!text) return alert("Write or generate a reply first.");
+          sendBtn.disabled = true;
+          try {
+            const r = await fetch(`${GRAPH}/${c.id}/comments`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: text, access_token: s.token }) });
+            const j = await r.json();
+            if (j.error) throw new Error(j.error.message || "Facebook error");
+            sendBtn.textContent = "Sent ✓"; sendBtn.disabled = true;
+          } catch (e) { alert("Send failed: " + e.message); sendBtn.disabled = false; }
+        });
+        d.appendChild(genBtn); d.appendChild(ta); d.appendChild(sendBtn);
+        $("commentsList").appendChild(d);
+      }
+    }
+    hideMsg($("commentsMsg"));
+    if (!found) $("commentsList").innerHTML = "<p class='small'>No comments on your latest posts yet.</p>";
+  } catch (e) {
+    showMsg($("commentsMsg"), "Could not load comments: " + e.message, "err");
+  }
+});
+
+loadSettingsIntoForm();
+renderScheduled();
+</script>
+</body>
+</html>
