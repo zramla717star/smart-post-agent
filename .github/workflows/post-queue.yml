@@ -1,0 +1,41 @@
+name: Post Queue
+
+# Autopilot: every 30 minutes, post due items from queue.json to the
+# Facebook Page, then commit the updated queue and delete posted media.
+# Manual run: Actions tab -> Post Queue -> Run workflow.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# One run at a time — overlapping runs could post the same item twice.
+concurrency:
+  group: post-queue
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Post due queue items
+        env:
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_USER_TOKEN: ${{ secrets.FB_USER_TOKEN }}
+          FB_APP_ID: ${{ secrets.FB_APP_ID }}
+          FB_APP_SECRET: ${{ secrets.FB_APP_SECRET }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/post-queue.mjs
