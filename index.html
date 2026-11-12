@@ -64,6 +64,7 @@
   <button data-tab="create">Create Post</button>
   <button data-tab="comments">Comments</button>
   <button data-tab="scheduled">Scheduled</button>
+  <button data-tab="queue">Queue</button>
   <button data-tab="settings">Settings</button>
 </nav>
 <main>
@@ -97,7 +98,7 @@
       <label for="schedTime">Or schedule for later (Pakistan time)</label>
       <input type="datetime-local" id="schedTime">
       <button class="btn btn-blue" id="scheduleBtn">Save to Schedule</button>
-      <p class="small" style="margin-top:8px;">Schedule note: this app posts a scheduled item when the app is open at that time. For fully automatic posting while the app is closed, a small GitHub Actions step is needed later — V1 keeps it simple and safe.</p>
+      <p class="small" style="margin-top:8px;">Schedule note: this app posts a scheduled item when the app is open at that time. The GitHub Action now posts queued items from queue.json automatically every 30 minutes — see the Queue tab.</p>
     </div>
   </section>
 
@@ -121,6 +122,17 @@
     </div>
   </section>
 
+  <!-- QUEUE (AUTOPILOT) -->
+  <section id="tab-queue">
+    <div class="card">
+      <h2>Autopilot Queue</h2>
+      <p class="small">Items Muse adds to <b>queue.json</b> in the repo. The GitHub Action posts due items automatically every 30 minutes — you do nothing here.</p>
+      <button class="btn btn-gold" id="loadQueueBtn">Refresh Queue</button>
+      <div class="msg" id="queueMsg"></div>
+      <div id="queueList"></div>
+    </div>
+  </section>
+
   <!-- SETTINGS -->
   <section id="tab-settings">
     <div class="card">
@@ -134,12 +146,31 @@
       <label for="pageId">Facebook Page ID</label>
       <input type="text" id="pageId" placeholder="e.g. 1393436240527022" autocomplete="off">
       <p class="small">Find it in Graph API Explorer: run <b>me/accounts</b> and copy the <b>id</b> next to your Page name.</p>
+      <label for="appId">Meta App ID (optional — for the Autopilot token)</label>
+      <input type="text" id="appId" placeholder="e.g. 123456789012345" autocomplete="off">
+      <p class="small">From developers.facebook.com → your app Smart Post Agent → Settings → Basic → App ID.</p>
+      <label for="appSecret">Meta App Secret (optional — for the Autopilot token)</label>
+      <input type="password" id="appSecret" placeholder="Paste your App Secret" autocomplete="off">
+      <p class="small">Same page → App Secret (tap Show). It stays only in this browser and is sent only to Facebook's Graph API.</p>
       <button class="btn btn-gold" id="saveSettingsBtn">Save Settings</button>
       <button class="btn btn-dark" id="clearSettingsBtn">Clear Saved Keys</button>
       <div class="msg" id="settingsMsg"></div>
       <h3>Connection test</h3>
       <button class="btn btn-blue" id="testBtn">Test Connection</button>
       <div class="msg" id="testMsg"></div>
+      <h3>Long-lived token for Autopilot (GitHub Action)</h3>
+      <p class="small">The Action needs a long-lived <b>User</b> token (lasts about 60 days) as the repo secret <b>FB_USER_TOKEN</b>. Tap the button to exchange a short-lived token: a <b>User Token</b> from Graph API Explorer works best (the Access Token box, before you pick "Get Page Access Token"). The box below starts with your saved Page token — if the exchange gives a Page token instead, paste a short-lived User Token and tap again. Copy the result into the repo's GitHub Secrets. Never paste secrets in a chat.</p>
+      <label for="exchangeToken">Short-lived token to exchange</label>
+      <input type="password" id="exchangeToken" placeholder="Paste a short-lived User Token from Graph API Explorer" autocomplete="off">
+      <button class="btn btn-blue" id="exchangeBtn">Get Long-Lived Token</button>
+      <div class="msg" id="exchangeMsg"></div>
+      <label for="longLivedOut">Long-lived token (copy this)</label>
+      <textarea id="longLivedOut" readonly rows="3" placeholder="Your long-lived token will appear here"></textarea>
+      <div class="row">
+        <button class="btn btn-dark" id="copyTokenBtn">Copy Token</button>
+        <button class="btn btn-green" id="saveFreshPageTokenBtn" style="display:none;">Save Fresh Page Token</button>
+      </div>
+      <div class="msg" id="copyMsg"></div>
     </div>
   </section>
 
@@ -147,7 +178,7 @@
 <footer>Smart Post Agent · Free · Your Page, your keys, your control.</footer>
 <script>
 const GRAPH = "https://graph.facebook.com/v27.0";
-const LS = { gemini: "spa_gemini_key", token: "spa_page_token", pageId: "spa_page_id", sched: "spa_scheduled" };
+const LS = { gemini: "spa_gemini_key", token: "spa_page_token", pageId: "spa_page_id", sched: "spa_scheduled", appId: "spa_app_id", appSecret: "spa_app_secret" };
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -164,6 +195,7 @@ document.querySelectorAll("nav button").forEach(b => {
     document.querySelectorAll("main section").forEach(s => s.classList.remove("active"));
     $("tab-" + b.dataset.tab).classList.add("active");
     if (b.dataset.tab === "scheduled") renderScheduled();
+    if (b.dataset.tab === "queue") loadQueue();
   });
 });
 
@@ -172,11 +204,16 @@ function loadSettingsIntoForm() {
   $("geminiKey").value = localStorage.getItem(LS.gemini) || "";
   $("pageToken").value = localStorage.getItem(LS.token) || "";
   $("pageId").value = localStorage.getItem(LS.pageId) || "";
+  $("appId").value = localStorage.getItem(LS.appId) || "";
+  $("appSecret").value = localStorage.getItem(LS.appSecret) || "";
+  if (!$("exchangeToken").value) $("exchangeToken").value = localStorage.getItem(LS.token) || "";
 }
 $("saveSettingsBtn").addEventListener("click", () => {
   localStorage.setItem(LS.gemini, $("geminiKey").value.trim());
   localStorage.setItem(LS.token, $("pageToken").value.trim());
   localStorage.setItem(LS.pageId, $("pageId").value.trim());
+  localStorage.setItem(LS.appId, $("appId").value.trim());
+  localStorage.setItem(LS.appSecret, $("appSecret").value.trim());
   showMsg($("settingsMsg"), "Settings saved in this browser only.", "ok");
 });
 $("clearSettingsBtn").addEventListener("click", () => {
@@ -414,6 +451,93 @@ $("loadCommentsBtn").addEventListener("click", async () => {
   } catch (e) {
     showMsg($("commentsMsg"), "Could not load comments: " + e.message, "err");
   }
+});
+
+// Autopilot Queue: read queue.json from the repo (GitHub Pages serves it)
+async function loadQueue() {
+  showMsg($("queueMsg"), "Loading queue…", "info");
+  $("queueList").innerHTML = "";
+  try {
+    const r = await fetch("queue.json", { cache: "no-store" });
+    if (!r.ok) throw new Error("queue.json not found (HTTP " + r.status + ") — it appears once the Autopilot files are uploaded to GitHub.");
+    const items = await r.json();
+    hideMsg($("queueMsg"));
+    if (!items.length) { $("queueList").innerHTML = "<p class='small'>Queue is empty. Nothing scheduled.</p>"; return; }
+    items.slice().sort((a, b) => String(a.post_at || "").localeCompare(String(b.post_at || ""))).forEach(item => {
+      const d = document.createElement("div");
+      d.className = "post";
+      const when = item.post_at ? new Date(item.post_at).toLocaleString("en-GB", { timeZone: "Asia/Karachi" }) + " PKT" : "—";
+      const pill = item.status === "posted" ? "posted" : item.status === "failed" ? "due" : "sched";
+      const label = item.status === "posted" ? "Posted" : item.status === "failed" ? "Failed" : "Queued";
+      d.innerHTML = `<span class="pill ${pill}">${label}</span> <b style="margin-left:6px;">${esc((item.type || "").toUpperCase())}</b>` +
+        `<div style="margin-top:8px;">${esc((item.caption || "").slice(0, 140))}${(item.caption || "").length > 140 ? "…" : ""}</div>` +
+        `<div class="meta">Page: ${esc(item.page || "Default Page")}</div>` +
+        (item.file ? `<div class="meta">File: ${esc(item.file)}</div>` : "") +
+        `<div class="meta">Scheduled: ${esc(when)}</div>` +
+        (item.page_post_id ? `<div class="meta">Post: <a href="https://www.facebook.com/${esc(item.page_post_id)}" target="_blank" rel="noopener" style="color:var(--gold-soft);">View on Facebook ↗</a></div>` : "") +
+        (item.error ? `<div class="meta" style="color:#ffc9c9;">Error: ${esc(item.error)}</div>` : "");
+      $("queueList").appendChild(d);
+    });
+  } catch (e) {
+    showMsg($("queueMsg"), "Could not load queue: " + e.message, "err");
+  }
+}
+$("loadQueueBtn").addEventListener("click", loadQueue);
+
+// Long-lived token helper for the GitHub Action (FB_USER_TOKEN secret)
+$("exchangeBtn").addEventListener("click", async () => {
+  const appId = (localStorage.getItem(LS.appId) || "").trim();
+  const appSecret = (localStorage.getItem(LS.appSecret) || "").trim();
+  const token = $("exchangeToken").value.trim();
+  if (!appId || !appSecret) return showMsg($("exchangeMsg"), "Add your App ID and App Secret in Settings first (and tap Save Settings).", "err");
+  if (!token) return showMsg($("exchangeMsg"), "Paste a short-lived token in the box above first — a User Token from Graph API Explorer works best.", "err");
+  const btn = $("exchangeBtn");
+  btn.disabled = true;
+  showMsg($("exchangeMsg"), "Exchanging…", "info");
+  try {
+    const params = new URLSearchParams({ grant_type: "fb_exchange_token", client_id: appId, client_secret: appSecret, fb_exchange_token: token });
+    const r = await fetch(`${GRAPH}/oauth/access_token?${params}`);
+    const j = await r.json();
+    if (j.error) throw new Error(j.error.message || "Facebook error");
+    if (!j.access_token) throw new Error("No token returned.");
+    const longToken = j.access_token;
+    $("longLivedOut").value = longToken;
+    // If the exchanged token is a user token, /me/accounts gives the pages
+    // and a fresh Page token for the saved Page ID.
+    const ra = await fetch(`${GRAPH}/me/accounts?access_token=${encodeURIComponent(longToken)}`);
+    const ja = await ra.json();
+    const pageId = (localStorage.getItem(LS.pageId) || "").trim();
+    const page = (ja.data || []).find(p => String(p.id) === pageId);
+    if (page && page.access_token) {
+      window._freshPageToken = page.access_token;
+      $("saveFreshPageTokenBtn").style.display = "block";
+      showMsg($("exchangeMsg"), "Done ✓\nThis is a long-lived USER token (about 60 days). Copy it into the repo's GitHub Secrets as FB_USER_TOKEN.\n\nA fresh Page token is ready too — tap \"Save Fresh Page Token\" to store it in this app's Settings.", "ok");
+    } else {
+      showMsg($("exchangeMsg"), "Done — token exchanged ✓\nNote: this looks like a long-lived PAGE token (the token you exchanged was a Page token). The GitHub Action needs a long-lived USER token as FB_USER_TOKEN: paste a short-lived User Token from Graph API Explorer into the box above and tap the button again.", "info");
+    }
+  } catch (e) {
+    showMsg($("exchangeMsg"), "Exchange failed: " + e.message + "\nCheck the App ID / App Secret, and that the token is a fresh short-lived token from Graph API Explorer.", "err");
+  } finally { btn.disabled = false; }
+});
+$("copyTokenBtn").addEventListener("click", async () => {
+  const v = $("longLivedOut").value.trim();
+  if (!v) return showMsg($("copyMsg"), "Nothing to copy yet — tap 'Get Long-Lived Token' first.", "err");
+  try {
+    await navigator.clipboard.writeText(v);
+    showMsg($("copyMsg"), "Copied ✓ — paste it as the FB_USER_TOKEN secret in the repo.", "ok");
+  } catch (e) {
+    $("longLivedOut").select();
+    document.execCommand("copy");
+    showMsg($("copyMsg"), "Copied ✓ — paste it as the FB_USER_TOKEN secret in the repo.", "ok");
+  }
+});
+$("saveFreshPageTokenBtn").addEventListener("click", () => {
+  if (!window._freshPageToken) return;
+  localStorage.setItem(LS.token, window._freshPageToken);
+  $("pageToken").value = window._freshPageToken;
+  $("exchangeToken").value = window._freshPageToken;
+  showMsg($("exchangeMsg"), "Fresh Page token saved in this app's Settings ✓", "ok");
+  $("saveFreshPageTokenBtn").style.display = "none";
 });
 
 loadSettingsIntoForm();
