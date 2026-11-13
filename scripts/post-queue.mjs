@@ -10,11 +10,13 @@
  *   FB_PAGE_ID      — default Facebook Page ID (Beyond The Silence).
  *                     Queue items may target other Pages via their "page"
  *                     field (Page ID or Page name).
- *   FB_USER_TOKEN   — long-lived USER token (~60 days). Refreshed each run
- *                     via fb_exchange_token, so the stored token only has
- *                     to be a valid long-lived user token. One user token
- *                     covers ALL Pages on the account — no extra secret
- *                     per Page.
+ *   FB_USER_TOKEN   — long-lived token (~60 days), refreshed each run via
+ *                     fb_exchange_token. Prefer a long-lived USER token:
+ *                     one user token covers ALL Pages on the account.
+ *                     A long-lived PAGE token also works, but only for the
+ *                     default Page (FB_PAGE_ID); items targeting other
+ *                     Pages will then fail with "page not found on this
+ *                     account".
  *   FB_APP_ID       — Meta app ID (Smart Post Agent)
  *   FB_APP_SECRET   — Meta app secret
  *   GITHUB_TOKEN    — provided automatically by GitHub Actions (for push)
@@ -235,7 +237,21 @@ async function main() {
     pageMap = await getPageMap(userToken);
     log(`Found ${pageMap.byId.size} Page(s) on this account.`);
   } catch (err) {
-    fail(`Could not list Pages: ${safeError(err)}`);
+    // Fallback: the stored token may be a long-lived PAGE token (e.g. made
+    // with the app's helper from a Page token). /me/accounts needs a user
+    // token, so check whether the exchanged token is the default Page's
+    // own token instead — then only that Page can be posted to.
+    log(`/me/accounts failed (${safeError(err)}) — checking if the token is a Page token for the default Page.`);
+    try {
+      const page = await graphJson(
+        `${GRAPH}/${process.env.FB_PAGE_ID}?fields=id,name&access_token=${encodeURIComponent(userToken)}`
+      );
+      const entry = { id: String(page.id), name: page.name || String(page.id), token: userToken };
+      pageMap = { byId: new Map([[entry.id, entry]]), byName: new Map([[entry.name.toLowerCase(), entry]]) };
+      log(`Token is a Page token for "${entry.name}" — posting to the default Page only. Items targeting other Pages will fail; use a long-lived USER token for multi-page posting.`);
+    } catch (err2) {
+      fail(`Could not list Pages: ${safeError(err)} — and the token is not the default Page's token either (${safeError(err2)}). Check FB_USER_TOKEN and FB_PAGE_ID.`);
+    }
   }
   if (!pageMap.byId.has(String(process.env.FB_PAGE_ID))) {
     fail(`Default Page ${process.env.FB_PAGE_ID} (FB_PAGE_ID) not found in /me/accounts. Check FB_PAGE_ID and that the Smart Post Agent app is connected to that Page.`);
