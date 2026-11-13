@@ -514,7 +514,7 @@ $("exchangeBtn").addEventListener("click", async () => {
       $("saveFreshPageTokenBtn").style.display = "block";
       showMsg($("exchangeMsg"), "Done ✓\nThis is a long-lived USER token (about 60 days). Copy it into the repo's GitHub Secrets as FB_USER_TOKEN.\n\nA fresh Page token is ready too — tap \"Save Fresh Page Token\" to store it in this app's Settings.", "ok");
     } else {
-      showMsg($("exchangeMsg"), "Done — token exchanged ✓\nNote: this looks like a long-lived PAGE token (the token you exchanged was a Page token). The GitHub Action needs a long-lived USER token as FB_USER_TOKEN: paste a short-lived User Token from Graph API Explorer into the box above and tap the button again.", "info");
+      showMsg($("exchangeMsg"), "Done — token exchanged ✓\nThis is a long-lived PAGE token (the token you exchanged was a Page token). It works as the FB_USER_TOKEN secret for the default Page only (Beyond The Silence) — the GitHub Action accepts it. For posting to OTHER Pages too, use a long-lived USER token instead: paste a short-lived User Token from Graph API Explorer into the box above and tap the button again.", "info");
     }
   } catch (e) {
     showMsg($("exchangeMsg"), "Exchange failed: " + e.message + "\nCheck the App ID / App Secret, and that the token is a fresh short-lived token from Graph API Explorer.", "err");
