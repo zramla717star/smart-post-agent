@@ -53,6 +53,12 @@ nothing except give content guidelines.
     (`FB_PAGE_ID`, Beyond The Silence). If the named Page is not on the
     account, that item is marked `"failed"` with
     `"page not found on this account"` and the rest still post.
+  - `groups` — optional: list of Facebook group names where the post should
+    be shared BY HAND after it goes live (e.g. `["ANCIENT HISTORY",
+    "Archaeology news & Architecture"]`). Facebook closed the Groups API in
+    April 2024, so no app can auto-post into groups — the Queue tab shows
+    this list as a reminder. ANCIENT HISTORY bans Page shares/links: share
+    there only as a native upload (photo/video straight into the group).
   - `status` — `"queued"`, `"posted"` or `"failed"`. The Action fills in
     `page_post_id` on success and `error` on failure.
 - **Multi-page:** one user token covers **all** Pages on her account — no

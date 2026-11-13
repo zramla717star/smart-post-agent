@@ -126,7 +126,7 @@
   <section id="tab-queue">
     <div class="card">
       <h2>Autopilot Queue</h2>
-      <p class="small">Items Muse adds to <b>queue.json</b> in the repo. The GitHub Action posts due items automatically every 30 minutes — you do nothing here.</p>
+      <p class="small">Items Muse adds to <b>queue.json</b> in the repo. The GitHub Action posts due items automatically every 30 minutes — you do nothing here. Groups me share karna manual hai (Facebook groups me auto-post nahi hota) — har post ke neeche likha hoga ke kis group me share karni hai.</p>
       <button class="btn btn-gold" id="loadQueueBtn">Refresh Queue</button>
       <div class="msg" id="queueMsg"></div>
       <div id="queueList"></div>
@@ -472,6 +472,7 @@ async function loadQueue() {
       d.innerHTML = `<span class="pill ${pill}">${label}</span> <b style="margin-left:6px;">${esc((item.type || "").toUpperCase())}</b>` +
         `<div style="margin-top:8px;">${esc((item.caption || "").slice(0, 140))}${(item.caption || "").length > 140 ? "…" : ""}</div>` +
         `<div class="meta">Page: ${esc(item.page || "Default Page")}</div>` +
+        (item.groups && item.groups.length ? `<div class="meta">Share in groups (manual): ${esc(item.groups.join(", "))}</div>` : "") +
         (item.file ? `<div class="meta">File: ${esc(item.file)}</div>` : "") +
         `<div class="meta">Scheduled: ${esc(when)}</div>` +
         (item.page_post_id ? `<div class="meta">Post: <a href="https://www.facebook.com/${esc(item.page_post_id)}" target="_blank" rel="noopener" style="color:var(--gold-soft);">View on Facebook ↗</a></div>` : "") +
