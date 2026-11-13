@@ -89,7 +89,7 @@ Repo → **Settings → Secrets and variables → Actions → New repository sec
 | Secret | Value — where it comes from |
 |---|---|
 | `FB_PAGE_ID` | Graph API Explorer → run `me/accounts` → copy the `id` next to Beyond The Silence |
-| `FB_USER_TOKEN` | Long-lived **user** token — generate it in the app: Settings → add App ID + App Secret → **Get Long-Lived Token** → copy the result here |
+| `FB_USER_TOKEN` | Long-lived token — generate it in the app: Settings → add App ID + App Secret → **Get Long-Lived Token** → copy the result here. A long-lived **user** token is best (covers ALL Pages on the account). A long-lived **Page** token also works, but only for the default Page (`FB_PAGE_ID`). |
 | `FB_APP_ID` | developers.facebook.com → Smart Post Agent → Settings → Basic → App ID |
 | `FB_APP_SECRET` | Same page → App Secret (tap Show) |
 
