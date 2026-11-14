@@ -34,5 +34,21 @@
     "post_at": "2026-11-14T04:15:00Z",
     "status": "posted",
     "page_post_id": "2687329158363636"
+  },
+  {
+    "id": "ep09-distance-clearer-2026-11-14",
+    "type": "video",
+    "file": "content/beyond-the-silence-09-distance-clearer-10s-music.mp4",
+    "caption": "Sometimes stepping back is the only way to see clearly. 🌃 #BeyondTheSilence #Distance #Clarity #LifeLessons #DeepQuotes",
+    "post_at": "2026-11-14T14:00:00Z",
+    "status": "queued"
+  },
+  {
+    "id": "ep10-know-your-worth-2026-11-14",
+    "type": "video",
+    "file": "content/beyond-the-silence-10-know-your-worth-10s-music.mp4",
+    "caption": "Your worth isn't up for debate — not today, not ever. 🖤 #BeyondTheSilence #KnowYourWorth #SelfWorth #DeepQuotes",
+    "post_at": "2026-11-14T17:00:00Z",
+    "status": "queued"
   }
 ]
